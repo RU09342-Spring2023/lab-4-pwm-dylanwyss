@@ -4,32 +4,22 @@
  *  Created on: Feb 21, 2023
  *      Author: Dylan Wyss
  *
+ *  Code from in-class PWM example used for assistance
  */
 
-#define DUTY_CYCLE_50 0
-#define DUTY_CYCLE_60 1
-#define DUTY_CYCLE_70 2
-#define DUTY_CYCLE_80 3
-#define DUTY_CYCLE_90 4
-#define DUTY_CYCLE_100 5
-#define DUTY_CYCLE_0 6
-#define DUTY_CYCLE_10 7
-#define DUTY_CYCLE_20 8
-#define DUTY_CYCLE_30 9
-#define DUTY_CYCLE_40 10
+#define INITIAL_DUTY_CYCLE 501
 
 #include <msp430.h>
 
-unsigned int red_state = DUTY_CYCLE_50;
-//unsigned int green_state = DUTY_CYCLE_50;
-
-unsigned short initial_red_cycle = 500;           // 100 * (50/100)
-//unsigned short initial_green_cycle = 500;
+void LEDSetup();
+void ButtonSetup();
+void TimerA0Setup();
+void TimerA1Setup();
 
 void main()
 {
     WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
-    LEDSetup();     // Initialize our LEDS
+    LEDSetup();     // Initialize our LEDs
     ButtonSetup();  // Initialize our button
     TimerA0Setup(); // Initialize Timer0
     TimerA1Setup(); // Initialize Timer1
@@ -52,12 +42,14 @@ void LEDSetup(){
 
 void ButtonSetup(){
     // Configure Button on P2.3 as input with pullup resistor
+    P2DIR &= ~BIT3;                         // Set P2.3 to input direction
     P2OUT |= BIT3;                          // Configure P2.3 as pulled-up
     P2REN |= BIT3;                          // P2.3 pull-up register enable
     P2IES &= ~BIT3;                         // P2.3 Low --> High edge
     P2IE |= BIT3;                           // P2.3 interrupt enabled
 
     // Configure Button on P4.1 as input with pullup resistor
+    P4DIR &= ~BIT1;                         // Set P4.1 to input direction
     P4OUT |= BIT1;                          // Configure P4.1 as pulled-up
     P4REN |= BIT1;                          // P4.1 pull-up register enable
     P4IES &= ~BIT1;                         // P4.1 Low --> High edge
@@ -66,84 +58,94 @@ void ButtonSetup(){
 
 void TimerA0Setup(){
     // Setup Timer 0
-    TB0CTL = TBSSEL_2 | MC_UP | TBCLR | TBIE;      // SMCLK, up mode, clear
-    TB0CCTL1 |= CCIE;                       // Enable TB0 CCR0 Overflow IRQ
-    TB0CCR1 = initial_red_cycle;                   // CCR0 initialized to duty cycle value
+    TB0CTL = TBSSEL__SMCLK | MC__UP | TBIE;       // SMCLK, UP mode
+    TB0CCTL1 |= CCIE;                             // Enable TB0 CCR1 Interrupt
+    TB0CCR0 = 1000;                               // Set CCR0 to the value to set the period
+    TB0CCR1 = INITIAL_DUTY_CYCLE;                 // Set CCR1 to the duty cycle
 }
-/*
+
 void TimerA1Setup(){
     // Setup Timer 1
-    TB1CTL = TBSSEL_2 | MC_UP | TBCLR | TBIE;      // SMCLK, up mode, clear
-    TB1CCTL1 |= CCIE;                       // Enable TB0 CCR0 Overflow IRQ
-    TB1CCR1 = initial_green_cycle;                   // CCR0 initialized to duty cycle value
+    TB1CTL = TBSSEL__SMCLK | MC__UP | TBIE;       // SMCLK, UP mode
+    TB1CCTL1 |= CCIE;                             // Enable TB1 CCR1 Interrupt
+    TB1CCR0 = 1000;                               // Set CCR0 to the value to set the period
+    TB1CCR1 = INITIAL_DUTY_CYCLE;                 // Set CCR1 to the duty cycle
 }
-*/
+
 // Port 2 interrupt service routine
 #pragma vector=PORT2_VECTOR
 __interrupt void Port_2(void)
 {
-    if (red_state < 10)
-        red_state++;
+    P2IFG &= ~BIT3;
+    if (TB0CCR1 > 1000)                           // If duty cycle is 100%
+        TB0CCR1 = 1;                              // Set brightness to roughly 0
     else
-        red_state = 0;
+        TB0CCR1 += 100;                           // If not, add 10% (100/1000 = 10%)
 }
-/*
+
 // Port 4 interrupt service routine
 #pragma vector=PORT4_VECTOR
 __interrupt void Port_4(void)
 {
-
-}
-*/
-// Timer0_B1 interrupt service routine
-#pragma vector = TIMER0_B1_VECTOR
-__interrupt void Timer0_B1_ISR(void)
-{
-    switch(red_state)
-    case DUTY_CYCLE_50:
-        red_duty_add = 0;
-    case DUTY_CYCLE_60:
-        red_duty_add = 100;
-    case DUTY_CYCLE_70:
-        red_duty_add = 200;
-    case DUTY_CYCLE_80:
-        red_duty_add = 300;
-    case DUTY_CYCLE_90:
-        red_duty_add = 400;
-    case DUTY_CYCLE_100:
-        red_duty_add = 500;
-    case DUTY_CYCLE_0:
-        red_duty_add = -500;
-    case DUTY_CYCLE_10:
-        red_duty_add = -400;
-    case DUTY_CYCLE_20:
-        red_duty_add = -300;
-    case DUTY_CYCLE_30:
-        red_duty_add = -200;
-    case DUTY_CYCLE_40:
-        red_duty_add = -100;
+    P4IFG &= ~BIT1;
+    if (TB1CCR1 > 1000)                           // If duty cycle is 100%
+        TB1CCR1 = 1;                              // Set brightness to roughly 0
+    else
+        TB1CCR1 += 100;                           // If not, add 10% (100/1000 = 10%)
 }
 
-// Timer1_B1 interrupt service routine
-#pragma vector = TIMER1_B1_VECTOR
-__interrupt void Timer1_B1_ISR(void)
+// Timer0_B3 Interrupt Vector (TBIV) handler
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER0_B1_VECTOR
+__interrupt void TIMER0_B1_ISR(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
+#else
+#error Compiler not supported!
+#endif
 {
-    P1OUT ^= BIT0;                          // Toggle Red LED
-    TB1CCR1 += red_duty_add;     // Increment time between interrupts
+    switch(__even_in_range(TB0IV,TB0IV_TBIFG))
+    {
+        case TB0IV_NONE:
+            break;                               // No interrupt
+        case TB0IV_TBCCR1:
+            P1OUT &= ~BIT0;
+            break;                               // CCR1 Set the pin to a 0
+        case TB0IV_TBCCR2:
+            break;                               // CCR2 not used
+        case TB0IV_TBIFG:
+            P1OUT |= BIT0;                       // overflow Set the pin to a 1
+            break;
+        default:
+            break;
+    }
 }
 
-/*
-// Timer2_B1 interrupt service routine
-#pragma vector = TIMER0_B1_VECTOR
-__interrupt void Timer2_B1_ISR(void)
+// Timer1_B3 Interrupt Vector (TBIV) handler
+#if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
+#pragma vector=TIMER1_B1_VECTOR
+__interrupt void TIMER1_B1_ISR(void)
+#elif defined(__GNUC__)
+void __attribute__ ((interrupt(TIMER1_B1_VECTOR))) TIMER1_B1_ISR (void)
+#else
+#error Compiler not supported!
+#endif
 {
-
+    switch(__even_in_range(TB1IV,TB1IV_TBIFG))
+    {
+        case TB1IV_NONE:
+            break;                               // No interrupt
+        case TB1IV_TBCCR1:
+            P6OUT &= ~BIT6;
+            break;                               // CCR1 Set the pin to a 0
+        case TB1IV_TBCCR2:
+            break;                               // CCR2 not used
+        case TB1IV_TBIFG:
+            P6OUT |= BIT6;                       // overflow Set the pin to a 1
+            break;
+        default:
+            break;
+    }
 }
 
-// Timer3_B1 interrupt service routine
-#pragma vector = TIMER1_B1_VECTOR
-__interrupt void Timer3_B1_ISR(void)
-{
-    P6OUT ^= BIT6;                          // Toggle Green LED
-    TB1CCR1 += green_duty_cycle;   // Increment time between interrupts}
-*/
+
