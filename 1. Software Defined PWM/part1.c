@@ -94,7 +94,7 @@ __interrupt void Port_4(void)
         TB1CCR1 += 100;                           // If not, add 10% (100/1000 = 10%)
 }
 
-// Timer0_B3 Interrupt Vector (TBIV) handler
+// Timer0_B1 Interrupt Vector (TBIV) handler
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER0_B1_VECTOR
 __interrupt void TIMER0_B1_ISR(void)
@@ -121,7 +121,7 @@ void __attribute__ ((interrupt(TIMER0_B1_VECTOR))) TIMER0_B1_ISR (void)
     }
 }
 
-// Timer1_B3 Interrupt Vector (TBIV) handler
+// Timer1_B1 Interrupt Vector (TBIV) handler
 #if defined(__TI_COMPILER_VERSION__) || defined(__IAR_SYSTEMS_ICC__)
 #pragma vector=TIMER1_B1_VECTOR
 __interrupt void TIMER1_B1_ISR(void)
