@@ -61,7 +61,7 @@ void LEDSetup(){
 }
 ```
 
-Next up is the initializations for each timer in the function TimerSetup. There were two timers used in this program, Timer 1 which controls how often the LED changes colors and Timer 3 which changes the duty cycle of each of the three LEDs. For Timer 3, the timer is configured using SMCLK in up mode. CCR0 is set to the value of period - 1, and CCR1 through CCR3 are configured for the duty cycle of each LED. CCR1 is for red, CCR2 is for green, and CCR3 is for blue. Since the LED begins as the color red, CCR1 is initialized to a period of 999, which is the max duty cycle while the two other LEDs are initialized to a duty cycle of 0. For Timer 1, the timer is onfigured using ACLK in continuous mode. The period is set to 1 as the LEDs need to continously be fading.
+Next up is the initializations for each timer in the function TimerSetup. There were two timers used in this program, Timer 1 which controls how often the LED changes colors and Timer 3 which changes the duty cycle of each of the three LEDs. For Timer 3, the timer is configured using SMCLK in up mode. CCR0 is set to the value of period - 1, and CCR1 through CCR3 control the duty cycle of each LED. CCR1 is for red, CCR2 is for green, and CCR3 is for blue. Since the LED begins as the color red, CCR1 is initialized to a period of 999, which is the max duty cycle while the two other LEDs are initialized to a duty cycle of 0. For Timer 1, the timer is onfigured using ACLK in continuous mode. The period is set to 1 as the LEDs need to continously be fading.
 ```c
 void TimerSetup(){
     TB3CCR0 = PERIOD - 1;                     // PWM Period
@@ -119,7 +119,7 @@ While the LED state is in between blue and red, the blue LED fades until it reac
         break;
     }
 ```
-If the timer register value reaches 60,000 it will be reset back to 1. This is so the capture control register does not hold a value that is greater than 65535 which is the maximum value a 16-bit register can hold. Likewise, here TB1CCR0 increases by 20, which sets the speed of the LED. I attempted the functions 'TB1CCR0++' which faded the LED too quickly and 'TB1CCR0' which faded the LED too slowly. I untimately decided on 20 for an increment value that faded the LED at a reasonable speed.
+If the timer register value reaches 60,000 it will be reset back to 1. This is so the capture control register does not hold a value that is greater than 65,535 which is the maximum value a 16-bit register can hold. Likewise, here TB1CCR0 increases by 20, which sets the speed of the LED. I attempted the functions 'TB1CCR0++' which faded the LED too quickly and 'TB1CCR0' which faded the LED too slowly. I untimately decided on 20 for an increment value that faded the LED at a reasonable speed.
 ```c
     if(TB3R >= 60000)
         TB3R = 1;                           // Reset timer register value to not go over 65535
