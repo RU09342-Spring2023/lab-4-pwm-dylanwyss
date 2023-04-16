@@ -1,12 +1,43 @@
 # Servo Control
-Servos can be controlled with PWM, determining which angle should be taken by how wide the duty cycle is. You will need to build a manual control for a servo using the two buttons on the development board.
+The objective of this part of the lab is to control a servo via PWM. This was done by taking the program written for Part 1 (software PWM) and making several changes. These changes are detailed as follows: 
 
-## Task
-You can chose whichever pin you want to control your Servo (but I might recommend one with hardware PWM control). Your will use the two buttons on your development board to control the position of your servo. The button on the left side of the board should turn the servo counterclockwise, the button on the right side of the board should turn it clockwise.
+Configure pin 6.0 as the output pin for the servo:
+```c
+    P6OUT &= ~BIT0;                         // Clear P6.0 output latch for a defined power-on state
+    P6DIR |= BIT0;                          // Set P6.0 to output direction
+```
 
-The servo will have a limit to the amount of degree it can rotate, so make sure you take a look at that before coding.
+Timer configured as follows:
+```c
+    TB0CTL = TBSSEL__SMCLK | MC__UP | TBIE;       // SMCLK, UP mode
+    TB0CCTL1 |= CCIE;                             // Enable TB0 CCR1 Interrupt
+    TB0CCTL2 |= CCIE;                             // Enable TB0 CCR2 Interrupt
+    TB0CCR0 = 20000;                              // Set CCR0 to the value to set the period
+    TB0CCR1 = 10000;                              // Set CCR1 to the duty cycle
+```
 
-The servo will need to be most likely powered from the power supply on the bench. If you do this, you need to make sure you connect common ground between the supply and your board. Otherwise, your system will not work or you risk damaging your board.
+Interrupt for button 2.3:
+If the duty cycle is less than 19000 (95%) rotate servo clockwise.
+```c
+#pragma vector=PORT2_VECTOR
+__interrupt void Port_2(void)
+{
+    P2IFG &= ~BIT3;
+    if (TB0CCR1 < 19000)
+        TB0CCR1 += 100;                            // Rotate servo clockwise
+}
+```
 
-## Deliverables
-You will need to upload the .c file and a README explaining your code and any design decisions made.
+Interrupt for button 4.1:
+If the duty cycle is greater than 1000 (5%) rotate servo counter-clockwise.
+```c
+#pragma vector=PORT4_VECTOR
+__interrupt void Port_4(void)
+{
+    P4IFG &= ~BIT1;
+    if (TB0CCR1 > 1000)
+        TB0CCR1 -= 100;                            // Rotate servo counter-clockwise
+}
+```
+
+Other than the button interrupts, this program is identical to that of Part 1 aside from changing the pins used.
